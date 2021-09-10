@@ -5,6 +5,7 @@ pub mod audio;
 #[macro_use]
 extern crate log;
 extern crate sdl2;
+extern crate clap;
 
 use std::error::Error;
 use std::fmt;
@@ -22,6 +23,7 @@ use sdl2::keyboard::Keycode;
 
 use rand::Rng;
 use chrono::Utc;
+use clap::{Arg, App, SubCommand};
 
 use keyboard::KeyBoard;
 use video::Video;
@@ -41,14 +43,18 @@ const STACK_SIZE: usize = 16;
 fn main() -> Result<()>{
     env_logger::init();
 
-    // let rom = ROM::new("test/IBM_Logo.hex")?;
-    // let rom = ROM::new("test/test_opcode.ch8")?;
-    // let rom = ROM::new("test/bc_test.ch8")?;
-    // let rom = ROM::new("test/delay_timer_test.ch8")?;
-    // let rom = ROM::new("test/random_number_test.ch8")?;
-    // let rom = ROM::new("test/SCTEST")?;
-    // let rom = ROM::new("test/TETRIS")?;
-    let rom = ROM::new("../chip8-game/chip-8/cavern/cavern.ch8")?;
+    let matches = App::new("yet-another-rchip8")
+        .version("0.0001")
+        .author("livexia")
+        .arg(Arg::with_name("ROM")
+            .short("r")
+            .long("rom")
+            .takes_value(true)
+            .help("Sets the rom file to load"))
+        .get_matches();
+    
+    let rom = matches.value_of("ROM").unwrap_or("IBM_Logo.hex");
+    let rom = ROM::new(rom)?;
     let mut machine = Machine::new()?;
     machine.load_font()?;
     machine.load_rom(&rom)?;
@@ -424,6 +430,7 @@ impl fmt::Debug for Instruction {
 
 #[derive(Debug)]
 struct ROM {
+    name: String,
     raw: Vec<u8>,
     length: usize,
 }
@@ -435,6 +442,7 @@ impl ROM {
         temp_f.read_to_end(&mut raw)?;
         let length = raw.len();
         Ok(ROM {
+            name: path.to_string(),
             raw, length
         })
     }
