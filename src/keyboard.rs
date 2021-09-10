@@ -2,7 +2,6 @@ use std::result;
 use std::error::Error;
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 use sdl2::keyboard::Scancode;
 

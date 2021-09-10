@@ -45,9 +45,10 @@ fn main() -> Result<()>{
     // let rom = ROM::new("test/test_opcode.ch8")?;
     // let rom = ROM::new("test/bc_test.ch8")?;
     // let rom = ROM::new("test/delay_timer_test.ch8")?;
-    let rom = ROM::new("test/random_number_test.ch8")?;
+    // let rom = ROM::new("test/random_number_test.ch8")?;
     // let rom = ROM::new("test/SCTEST")?;
-    let rom = ROM::new("test/TETRIS")?;
+    // let rom = ROM::new("test/TETRIS")?;
+    let rom = ROM::new("../chip8-game/chip-8/cavern/cavern.ch8")?;
     let mut machine = Machine::new()?;
     machine.load_font()?;
     machine.load_rom(&rom)?;
@@ -124,15 +125,6 @@ impl Machine {
         self.memory[start..end].clone_from_slice(&rom.raw[..]);
         Ok(())
     }
-
-    /**
-    00E0 (clear screen)
-    1NNN (jump)
-    6XNN (set register VX)
-    7XNN (add value to register VX)
-    ANNN (set index register I)
-    DXYN (display/draw)
-    */
 
     pub fn run(&mut self) -> Result<()> {
         let mut last_time = Utc::now();
