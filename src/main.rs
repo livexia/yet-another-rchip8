@@ -249,11 +249,11 @@ impl Machine {
                 let x = self.registers[instr.x()];
                 let y = self.registers[instr.y()];
                 match instr.n() {
-                    0 => self.registers[instr.x()] = y,
-                    1 => self.registers[instr.x()] |= y,
-                    2 => self.registers[instr.x()] &= y,
-                    3 => self.registers[instr.x()] ^= y,
-                    4 => { 
+                    0x0 => self.registers[instr.x()] = y,
+                    0x1 => self.registers[instr.x()] |= y,
+                    0x2 => self.registers[instr.x()] &= y,
+                    0x3 => self.registers[instr.x()] ^= y,
+                    0x4 => { 
                         match x.overflowing_add(y) {
                             (n, false) => self.registers[instr.x()] = n,
                             (n, true) => {
@@ -262,7 +262,7 @@ impl Machine {
                             },
                         }
                     },
-                    5 => { 
+                    0x5 => { 
                         match x.overflowing_sub(y) {
                             (n, false) => {
                                 self.registers[instr.x()] = n;
@@ -274,7 +274,7 @@ impl Machine {
                             },
                         }
                     },
-                    7 => { 
+                    0x7 => { 
                         match y.overflowing_sub(x) {
                             (n, false) => {
                                 self.registers[instr.x()] = n;
@@ -286,12 +286,12 @@ impl Machine {
                             },
                         }
                     },
-                    6 => { //ignore the y
-                        self.registers[instr.x()] = x.shr(1);
+                    0x6 => { //ignore the y
+                        self.registers[instr.x()] = x >> 1;
                         self.registers[0xf] = x & 1;
                     }
                     0xe => { //ignore the y
-                        self.registers[instr.x()] = x.shl(1);
+                        self.registers[instr.x()] = x << 1;
                         self.registers[0xf] = x >> 7;                       
                     }
                     _ => (),
@@ -345,9 +345,9 @@ impl Machine {
             0xF => {
                 let x = instr.x();
                 match instr.nn() {
-                    7 => self.registers[x] = self.delay_timer,
-                    15 => self.delay_timer = self.registers[x],
-                    18 => self.sound_timer = self.registers[x],
+                    0x7 => self.registers[x] = self.delay_timer,
+                    0x15 => self.delay_timer = self.registers[x],
+                    0x18 => self.sound_timer = self.registers[x],
                     0x1E => self.i += self.registers[x] as u16,
                     0x33 => {
                         let mut x = self.registers[instr.x()];
