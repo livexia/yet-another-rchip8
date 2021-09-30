@@ -221,7 +221,7 @@ impl Machine {
             },
             0x3 => {
                 let x = self.registers[instr.x()];
-                if x == instr.nn() as u8 {
+                if x == instr.nn() {
                     self.pc += 2;
                 }
             },
@@ -349,14 +349,6 @@ impl Machine {
                     0x15 => self.delay_timer = self.registers[x],
                     0x18 => self.sound_timer = self.registers[x],
                     0x1E => self.i += self.registers[x] as u16,
-                    0x33 => {
-                        let mut x = self.registers[instr.x()];
-                        self.memory[self.i as usize + 2] = x % 10;
-                        x /= 10;
-                        self.memory[self.i as usize + 1] = x % 10;
-                        x /= 10;
-                        self.memory[self.i as usize] = x;
-                    },
                     0x0A => {
                         let pressed_keys: Vec<u8> = event_pump
                             .keyboard_state()
@@ -372,10 +364,19 @@ impl Machine {
                         
                     },
                     0x29 => {
-                        let key = self.registers[instr.x()];
-                        self.i = 0x50 + 5 * key as u16;
-                        debug!("draw: {:X}", key);
-                    }
+                        let char = self.registers[instr.x()];
+                        self.i = 0x50 + 5 * char as u16;
+                        debug!("look char: {:X}", char);
+                    },
+                    0x33 => {
+                        let mut x = self.registers[instr.x()];
+                        self.memory[self.i as usize + 2] = x % 10;
+                        x /= 10;
+                        self.memory[self.i as usize + 1] = x % 10;
+                        x /= 10;
+                        self.memory[self.i as usize] = x;
+                        debug!("x: {}, BCD: {:?}", self.registers[instr.x()], &self.memory[self.i as usize..self.i as usize + 3]);
+                    },
                     0x55 => {
                         for n in 0..=0xf as usize {
                             self.memory[self.i as usize + n] = self.registers[n];
