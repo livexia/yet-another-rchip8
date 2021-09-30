@@ -135,9 +135,9 @@ impl Machine {
     pub fn run(&mut self) -> Result<()> {
         let mut last_time = Utc::now();
         let mut accumulator = 0.0;
-
+        let timer_freq = 1000.0 / 60.0;
         let mut running = true;
-        while running && (self.pc as usize) < MEMORY_SIZE - 1 {
+        while running && (self.pc as usize) < MEMORY_SIZE - 1 {    
             let cur_time = Utc::now();
             let mut delta = (cur_time - last_time).num_milliseconds() as f64;
             if delta > 100.0 {
@@ -145,7 +145,7 @@ impl Machine {
             }
             last_time = cur_time;
             accumulator += delta;
-            while accumulator >= 16.7 {
+            while accumulator >= timer_freq {
                 self.delay_timer = self.delay_timer.saturating_sub(1);
                 if self.sound_timer > 0 {
                     self.audio.resume();
@@ -153,11 +153,10 @@ impl Machine {
                 } else {
                     self.audio.pause();
                 }
-                accumulator -= 16.7;
+                accumulator -= timer_freq;
             }
-            let start = Utc::now();
+
             self.run_cycle(&mut running)?;
-            info!("run 1 cycle: {:?}", (Utc::now() - start).num_microseconds());
             self.video.draw()?;
 
             std::thread::sleep(Duration::from_micros(5000));
