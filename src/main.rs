@@ -15,6 +15,7 @@ use std::ops::Shr;
 use std::result;
 use std::collections::HashSet;
 use std::time::Duration;
+use std::thread;
 
 use sdl2::Sdl;
 use sdl2::event::Event;
@@ -23,6 +24,7 @@ use sdl2::keyboard::Keycode;
 use rand::Rng;
 use chrono::Utc;
 use clap::{Arg, App};
+use crossbeam_channel::{select, unbounded};
 
 use keyboard::KeyBoard;
 use video::Video;
@@ -135,33 +137,48 @@ impl Machine {
     }
 
     pub fn run(&mut self) -> Result<()> {
-        let mut last_time = Utc::now();
-        let mut accumulator = 0.0;
-        let timer_freq = 1000.0 / 60.0;
+        let (timer_tx, timer_rx) = unbounded();
+        let (clock_tx, clock_rx) = unbounded();
+
+        // timer 60Hz ~= 16667 micros
+        let timer_dur = Duration::from_micros(16657);
+        thread::spawn(move || {
+            loop {
+                thread::sleep(timer_dur);
+                timer_tx.send(chrono::Utc::now()).unwrap();
+            }
+        });
+        // clock 500Hz ~= 2000 micros
+        let clock_dur = Duration::from_micros(2000);
+        thread::spawn(move || {
+            loop {
+                thread::sleep(clock_dur);
+                clock_tx.send(chrono::Utc::now()).unwrap();
+            }
+        });
+
         let mut running = true;
-        while running && (self.pc as usize) < MEMORY_SIZE - 1 {    
-            let cur_time = Utc::now();
-            let mut delta = (cur_time - last_time).num_milliseconds() as f64;
-            if delta > 100.0 {
-                delta = 100.0;
-            }
-            last_time = cur_time;
-            accumulator += delta;
-            while accumulator >= timer_freq {
-                self.delay_timer = self.delay_timer.saturating_sub(1);
-                if self.sound_timer > 0 {
-                    self.audio.resume();
-                    self.sound_timer -= 1;
-                } else {
-                    self.audio.pause();
-                }
-                accumulator -= timer_freq;
-            }
+        while running && (self.pc as usize) < MEMORY_SIZE - 1 {
+            select! {
+                recv(timer_rx) -> msg => {
+                    if self.delay_timer > 0 {
+                        self.delay_timer -= 1;
+                    };
+                    if self.sound_timer > 0 {
+                        self.audio.resume();
+                        self.sound_timer -= 1;
+                    } else {
+                        self.audio.pause();
+                    };
+                    self.video.draw()?;
+                    debug!("timer: {}", msg.unwrap());
+                },
+                recv(clock_rx) -> msg => {
+                    self.run_cycle(&mut running)?;
+                    debug!("clock: {}", msg.unwrap());
+                },
+            };
 
-            self.run_cycle(&mut running)?;
-            self.video.draw()?;
-
-            std::thread::sleep(Duration::from_micros(5000));
         };        
 
         Ok(())
