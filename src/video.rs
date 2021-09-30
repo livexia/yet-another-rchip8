@@ -57,10 +57,10 @@ impl Video {
             for offset_x in 0..8 {
                 let new_x = x + offset_x;
                 if new_x < 64 {
-                    if self.grid[new_x][new_y] == 1 && bits >> (7 - offset_x) & 0x1 == 1 {
+                    if self.grid[new_x][new_y] == 1 && (bits >> (7 - offset_x)) & 0x1 == 1 {
                         self.grid[new_x][new_y] = 0;
                         flag = 1;
-                    } else if self.grid[new_x][new_y] == 0 && bits >> (7 - offset_x) & 0x1 == 1 {
+                    } else if self.grid[new_x][new_y] == 0 && (bits >> (7 - offset_x)) & 0x1 == 1 {
                         self.grid[new_x][new_y] = 1;
                     }
                 } else {

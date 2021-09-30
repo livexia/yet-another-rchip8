@@ -17,3 +17,6 @@ run_log
 
 #ignore test program
 test/
+
+#ignore vscode folder
+.vscode/*
