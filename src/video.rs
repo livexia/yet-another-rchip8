@@ -50,16 +50,18 @@ impl Video {
         let mut flag = 0;
         for offset_y in 0..n {
             let bits = data[offset_y];
-            if y + offset_y == 32 {
+            let new_y = y + offset_y;
+            if new_y == 32 {
                 break;
             }
             for offset_x in 0..8 {
-                if x + offset_x < 64 {
-                    if self.grid[x + offset_x][y + offset_y] == 1 && bits >> (7 - offset_x) & 0x1 == 1 {
-                        self.grid[x + offset_x][y + offset_y] = 0;
+                let new_x = x + offset_x;
+                if new_x < 64 {
+                    if self.grid[new_x][new_y] == 1 && bits >> (7 - offset_x) & 0x1 == 1 {
+                        self.grid[new_x][new_y] = 0;
                         flag = 1;
-                    } else if self.grid[x + offset_x][y + offset_y] == 0 && bits >> (7 - offset_x) & 0x1 == 1 {
-                        self.grid[x + offset_x][y + offset_y] = 1;
+                    } else if self.grid[new_x][new_y] == 0 && bits >> (7 - offset_x) & 0x1 == 1 {
+                        self.grid[new_x][new_y] = 1;
                     }
                 } else {
                     break;
