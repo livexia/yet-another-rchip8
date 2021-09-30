@@ -1,6 +1,8 @@
 pub mod keyboard;
 pub mod video;
 pub mod audio;
+pub mod rom;
+pub mod instruction;
 
 #[macro_use]
 extern crate log;
@@ -8,12 +10,9 @@ extern crate sdl2;
 extern crate clap;
 
 use std::error::Error;
-use std::fmt;
-use std::io::Read;
 use std::ops::Shl;
 use std::ops::Shr;
 use std::result;
-use std::fs::File;
 use std::collections::HashSet;
 use std::time::Duration;
 
@@ -23,17 +22,20 @@ use sdl2::keyboard::Keycode;
 
 use rand::Rng;
 use chrono::Utc;
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, App};
 
 use keyboard::KeyBoard;
 use video::Video;
 use audio::Audio;
+use rom::ROM;
+use instruction::Instruction;
 
+#[macro_export]
 macro_rules! err {
     ($($tt:tt)*) => { Err(Box::<dyn Error>::from(format!($($tt)*))) };
 }
 
-type Result<T> = result::Result<T, Box<dyn Error>>;
+pub type Result<T> = result::Result<T, Box<dyn Error>>;
 
 const MEMORY_SIZE: usize = 4096;
 const RESERVED_MEMORY_SIZE: usize = 512;
@@ -123,12 +125,12 @@ impl Machine {
     }
 
     pub fn load_rom(&mut self, rom: &ROM) -> Result<()> {
-        if rom.length > MEMORY_SIZE - RESERVED_MEMORY_SIZE {
-            return err!("can not load rom({} Bytes) that big than the machine memory({} Bytes)", rom.length, self.memory.len());
+        if rom.len() > MEMORY_SIZE - RESERVED_MEMORY_SIZE {
+            return err!("can not load rom({} Bytes) that big than the machine memory({} Bytes)", rom.len(), self.memory.len());
         }
         let start = self.pc as usize;
-        let end = start + rom.length;
-        self.memory[start..end].clone_from_slice(&rom.raw[..]);
+        let end = start + rom.len();
+        self.memory[start..end].clone_from_slice(&rom.raw()[..]);
         Ok(())
     }
 
@@ -377,72 +379,3 @@ impl Machine {
     }
 }
 
-struct Instruction {
-    opcode: u16,
-}
-
-impl Instruction {
-    pub fn new(high: u8, low: u8) -> Self {
-        Instruction {
-            opcode: (high as u16 ) << 8 | low as u16
-        }
-    }
-
-    pub fn kind(&self) -> u8 {
-        (self.opcode >> 12 & 0x0f) as u8
-    }
-
-    pub fn x(&self) -> usize {
-        (self.opcode >> 8 & 0x0f) as usize
-    }
-
-    pub fn y(&self) -> usize {
-        (self.opcode >> 4 & 0x0f) as usize
-    }
-
-    pub fn n(&self) -> u8 {
-        (self.opcode & 0x0f) as u8
-    }
-
-    pub fn nn(&self) -> u8 {
-        (self.opcode & 0xff) as u8
-    }
-
-    pub fn nnn(&self) -> u16 {
-        self.opcode & 0xfff
-    }
-}
-
-impl fmt::Debug for Instruction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Instruction")
-            .field("opcode", &self.opcode)
-            .field("kind", &self.kind())
-            .field("x", &self.x())
-            .field("y", &self.y())
-            .field("n", &self.n())
-            .field("nn", &self.nn())
-            .field("nnn", &self.nnn())
-            .finish()
-    }
-}
-
-#[derive(Debug)]
-struct ROM {
-    name: String,
-    raw: Vec<u8>,
-    length: usize,
-}
-
-impl ROM {
-    fn new(path: &str) -> Result<Self> {
-        let mut temp_f = File::open(path)?;
-        let mut raw = Vec::new();
-        temp_f.read_to_end(&mut raw)?;
-        let length = raw.len();
-        Ok(ROM {
-            name: path.to_string(),
-            raw, length
-        })
-    }
-}

@@ -1,9 +1,8 @@
-use std::result;
 use std::error::Error;
-
 use sdl2::{VideoSubsystem, render::WindowCanvas};
 
-type Result<T> = result::Result<T, Box<dyn Error>>;
+use crate::Result;
+use crate::err;
 
 pub struct Video {
     sdl_video: VideoSubsystem,

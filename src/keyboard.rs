@@ -1,15 +1,11 @@
-use std::result;
 use std::error::Error;
-
 use std::collections::HashMap;
 
 use sdl2::keyboard::Scancode;
 
-macro_rules! err {
-    ($($tt:tt)*) => { Err(Box::<dyn Error>::from(format!($($tt)*))) };
-}
+use crate::Result;
+use crate::err;
 
-type Result<T> = result::Result<T, Box<dyn Error>>;
 pub struct KeyBoard {
     keys_map: HashMap<u8, Scancode>,
     scancodes_map: HashMap<Scancode, u8>

@@ -1,4 +1,3 @@
-use std::result;
 use std::error::Error;
 
 use rand::Rng;
@@ -8,12 +7,13 @@ use sdl2::audio::AudioCallback;
 use sdl2::audio::AudioDevice;
 use sdl2::audio::AudioSpecDesired;
 
+use crate::Result;
+use crate::err;
+
 pub(crate) struct Audio {
     sdl_audio: AudioSubsystem,
     device: AudioDevice<MyCallback>,
 }
-
-type Result<T> = result::Result<T, Box<dyn Error>>;
 
 impl Audio {
     pub fn new(audio_subsystem: AudioSubsystem) -> Result<Self>{
