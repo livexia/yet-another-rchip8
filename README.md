@@ -26,3 +26,5 @@ $env:RUST_LOG="debug"; cargo run -- --rom .\test\TETRIS
 - [chip8-test-rom](https://github.com/corax89/chip8-test-rom)
 - [fonts](https://github.com/mattmikolay/chip-8/issues/3)
 - [mattmikolay/chip-8](https://github.com/mattmikolay/chip-8)
+- [Octo](https://internet-janitor.itch.io/octo)
+- [David Winter's CHIP-8 emulation page](http://www.pong-story.com/chip8/)
