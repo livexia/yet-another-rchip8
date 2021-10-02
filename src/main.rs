@@ -141,7 +141,7 @@ impl Machine {
         let (clock_tx, clock_rx) = unbounded();
 
         // timer 60Hz ~= 16667 micros
-        let timer_dur = Duration::from_micros(16657);
+        let timer_dur = Duration::from_micros(1000000 / 60);
         thread::spawn(move || {
             loop {
                 thread::sleep(timer_dur);
@@ -149,7 +149,7 @@ impl Machine {
             }
         });
         // clock 500Hz ~= 2000 micros
-        let clock_dur = Duration::from_micros(2000);
+        let clock_dur = Duration::from_micros(1000000 / 500);
         thread::spawn(move || {
             loop {
                 thread::sleep(clock_dur);
@@ -171,16 +171,16 @@ impl Machine {
                         self.audio.pause();
                     };
                     self.video.draw()?;
-                    debug!("timer: {}", msg.unwrap());
+                    // debug!("timer: {}", msg.unwrap());
                 },
                 recv(clock_rx) -> msg => {
                     self.run_cycle(&mut running)?;
-                    debug!("clock: {}", msg.unwrap());
+                    // debug!("clock: {}", msg.unwrap());
+                    debug!("registers: {:02?}", self.registers);
                 },
             };
 
-        };        
-
+        };
         Ok(())
     }
 
@@ -253,16 +253,19 @@ impl Machine {
                     0x1 => self.registers[instr.x()] |= y,
                     0x2 => self.registers[instr.x()] &= y,
                     0x3 => self.registers[instr.x()] ^= y,
-                    0x4 => { 
+                    0x4 => {
                         match x.overflowing_add(y) {
-                            (n, false) => self.registers[instr.x()] = n,
+                            (n, false) => {
+                                self.registers[instr.x()] = n;
+                                self.registers[0xf] = 0;
+                            },
                             (n, true) => {
                                 self.registers[instr.x()] = n;
                                 self.registers[0xf] = 1;
                             },
                         }
                     },
-                    0x5 => { 
+                    0x5 => {
                         match x.overflowing_sub(y) {
                             (n, false) => {
                                 self.registers[instr.x()] = n;
@@ -287,12 +290,12 @@ impl Machine {
                         }
                     },
                     0x6 => { //ignore the y
-                        self.registers[instr.x()] = x >> 1;
                         self.registers[0xf] = x & 1;
+                        self.registers[instr.x()] = x >> 1;
                     }
                     0xe => { //ignore the y
-                        self.registers[instr.x()] = x << 1;
-                        self.registers[0xf] = x >> 7;                       
+                        self.registers[0xf] = x >> 7;       
+                        self.registers[instr.x()] = x << 1;                
                     }
                     _ => (),
                 }
@@ -378,12 +381,12 @@ impl Machine {
                         debug!("x: {}, BCD: {:?}", self.registers[instr.x()], &self.memory[self.i as usize..self.i as usize + 3]);
                     },
                     0x55 => {
-                        for n in 0..=0xf as usize {
+                        for n in 0..=instr.x() {
                             self.memory[self.i as usize + n] = self.registers[n];
                         }
                     },
                     0x65 => {
-                        for n in 0..=0xf as usize {
+                        for n in 0..=instr.x() {
                             self.registers[n] = self.memory[self.i as usize + n];
                         }
                     },
