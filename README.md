@@ -12,6 +12,14 @@ OPTIONS:
     -r, --rom <ROM>    Sets the rom file to load
 ```
 
+Requirements 
+- [SDL2](https://github.com/Rust-SDL2/rust-sdl2#requirements)
+
+macOS
+```
+brew install sdl2 sdl2_mixer sdl2_image sdl2_ttf sdl2_gfx
+```
+
 example:
 ```
 $env:RUST_LOG="debug"; cargo run -- --rom .\test\TETRIS
