@@ -1,9 +1,8 @@
-use std::error::Error;
-use sdl2::{VideoSubsystem, render::WindowCanvas};
+use sdl2::{render::WindowCanvas, VideoSubsystem};
 
 use crate::Result;
-use crate::err;
 
+#[allow(dead_code)]
 pub struct Video {
     sdl_video: VideoSubsystem,
     canvas: WindowCanvas,
@@ -19,22 +18,24 @@ impl Video {
             .position_centered()
             .resizable()
             .build()?;
-        let mut canvas = window
-            .into_canvas()
-            .accelerated()
-            .build()?;
+        let mut canvas = window.into_canvas().accelerated().build()?;
         canvas.set_logical_size(width as u32, height as u32)?;
         let grid = vec![vec![0; height]; width];
         Ok(Self {
             sdl_video: video_subsystem,
-            canvas, width, height, grid
+            canvas,
+            width,
+            height,
+            grid,
         })
     }
 
-    pub fn draw(&mut self) -> Result<()>{
-        self.canvas.set_draw_color(sdl2::pixels::Color::RGBA(0, 0, 0 , 255));
+    pub fn draw(&mut self) -> Result<()> {
+        self.canvas
+            .set_draw_color(sdl2::pixels::Color::RGBA(0, 0, 0, 255));
         self.canvas.clear();
-        self.canvas.set_draw_color(sdl2::pixels::Color::RGBA(255, 255, 255 , 255));
+        self.canvas
+            .set_draw_color(sdl2::pixels::Color::RGBA(255, 255, 255, 255));
         for x in 0..64 {
             for y in 0..32 {
                 if self.grid[x][y] != 0 {
@@ -46,10 +47,9 @@ impl Video {
         Ok(())
     }
 
-    pub fn flip(&mut self, x: usize, y: usize, n: usize, data: &[u8]) -> u8{
+    pub fn flip(&mut self, x: usize, y: usize, n: usize, data: &[u8]) -> u8 {
         let mut flag = 0;
-        for offset_y in 0..n {
-            let bits = data[offset_y];
+        for (offset_y, bits) in data.iter().enumerate().take(n) {
             let new_y = y + offset_y;
             if new_y == 32 {
                 break;

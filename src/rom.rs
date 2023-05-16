@@ -1,13 +1,11 @@
-use std::io::Read;
 use std::fs::File;
-use std::error::Error;
+use std::io::Read;
 
 use crate::Result;
-use crate::err;
 
 #[derive(Debug)]
 pub struct ROM {
-    name: String,
+    pub name: String,
     raw: Vec<u8>,
     length: usize,
 }
@@ -20,7 +18,8 @@ impl ROM {
         let length = raw.len();
         Ok(ROM {
             name: path.to_string(),
-            raw, length
+            raw,
+            length,
         })
     }
 
@@ -31,4 +30,9 @@ impl ROM {
     pub fn raw(&self) -> Vec<u8> {
         self.raw.clone()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.length == 0
+    }
 }
+

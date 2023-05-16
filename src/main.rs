@@ -1,36 +1,33 @@
-pub mod keyboard;
-pub mod video;
 pub mod audio;
-pub mod rom;
 pub mod instruction;
+pub mod keyboard;
+pub mod rom;
+pub mod video;
 
 #[macro_use]
 extern crate log;
-extern crate sdl2;
 extern crate clap;
+extern crate sdl2;
 
-use std::error::Error;
-use std::ops::Shl;
-use std::ops::Shr;
-use std::result;
 use std::collections::HashSet;
-use std::time::Duration;
+use std::error::Error;
+use std::result;
 use std::thread;
+use std::time::Duration;
 
-use sdl2::Sdl;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::Sdl;
 
-use rand::Rng;
-use chrono::Utc;
-use clap::{Arg, App};
+use clap::{App, Arg};
 use crossbeam_channel::{select, unbounded};
+use rand::Rng;
 
-use keyboard::KeyBoard;
-use video::Video;
 use audio::Audio;
-use rom::ROM;
 use instruction::Instruction;
+use keyboard::KeyBoard;
+use rom::ROM;
+use video::Video;
 
 #[macro_export]
 macro_rules! err {
@@ -44,19 +41,21 @@ const RESERVED_MEMORY_SIZE: usize = 512;
 const REGISTER_COUNT: usize = 16;
 const STACK_SIZE: usize = 16;
 
-fn main() -> Result<()>{
+fn main() -> Result<()> {
     env_logger::init();
 
     let matches = App::new("yet-another-rchip8")
         .version("0.0001")
         .author("livexia")
-        .arg(Arg::with_name("ROM")
-            .short("r")
-            .long("rom")
-            .takes_value(true)
-            .help("Sets the rom file to load"))
+        .arg(
+            Arg::with_name("ROM")
+                .short("r")
+                .long("rom")
+                .takes_value(true)
+                .help("Sets the rom file to load"),
+        )
         .get_matches();
-    
+
     let rom = matches.value_of("ROM").unwrap_or("IBM_Logo.hex");
     let rom = ROM::new(rom)?;
     let mut machine = Machine::new()?;
@@ -77,11 +76,11 @@ struct Machine {
     keyboard: KeyBoard,
     sdl_context: Sdl,
     video: Video,
-    audio: Audio
+    audio: Audio,
 }
 
 impl Machine {
-    pub fn new() -> Result<Self>{
+    pub fn new() -> Result<Self> {
         let sdl_context = sdl2::init()?;
         let video_subsystem = Video::new(sdl_context.video()?, 64, 32)?;
         let audio_subsystem = Audio::new(sdl_context.audio()?)?;
@@ -97,38 +96,31 @@ impl Machine {
             sdl_context,
             keyboard: KeyBoard::default(),
             video: video_subsystem,
-            audio: audio_subsystem
+            audio: audio_subsystem,
         })
     }
 
     pub fn load_font(&mut self) -> Result<()> {
+        // TODO: load from file
         let font = [
-            0xF0, 0x90, 0x90, 0x90, 0xF0,
-            0x20, 0x60, 0x20, 0x20, 0x70,
-            0xF0, 0x10, 0xF0, 0x80, 0xF0,
-            0xF0, 0x10, 0xF0, 0x10, 0xF0,
-            0x90, 0x90, 0xF0, 0x10, 0x10,
-            0xF0, 0x80, 0xF0, 0x10, 0xF0,
-            0xF0, 0x80, 0xF0, 0x90, 0xF0,
-            0xF0, 0x10, 0x20, 0x40, 0x40,
-            0xF0, 0x90, 0xF0, 0x90, 0xF0,
-            0xF0, 0x90, 0xF0, 0x10, 0xF0,
-            0xF0, 0x90, 0xF0, 0x90, 0x90,
-            0xE0, 0x90, 0xE0, 0x90, 0xE0,
-            0xF0, 0x80, 0x80, 0x80, 0xF0,
-            0xE0, 0x90, 0x90, 0x90, 0xE0,
-            0xF0, 0x80, 0xF0, 0x80, 0xF0,
-            0xF0, 0x80, 0xF0, 0x80, 0x80
+            0xF0, 0x90, 0x90, 0x90, 0xF0, 0x20, 0x60, 0x20, 0x20, 0x70, 0xF0, 0x10, 0xF0, 0x80,
+            0xF0, 0xF0, 0x10, 0xF0, 0x10, 0xF0, 0x90, 0x90, 0xF0, 0x10, 0x10, 0xF0, 0x80, 0xF0,
+            0x10, 0xF0, 0xF0, 0x80, 0xF0, 0x90, 0xF0, 0xF0, 0x10, 0x20, 0x40, 0x40, 0xF0, 0x90,
+            0xF0, 0x90, 0xF0, 0xF0, 0x90, 0xF0, 0x10, 0xF0, 0xF0, 0x90, 0xF0, 0x90, 0x90, 0xE0,
+            0x90, 0xE0, 0x90, 0xE0, 0xF0, 0x80, 0x80, 0x80, 0xF0, 0xE0, 0x90, 0x90, 0x90, 0xE0,
+            0xF0, 0x80, 0xF0, 0x80, 0xF0, 0xF0, 0x80, 0xF0, 0x80, 0x80,
         ];
-        for i in 0..font.len() {
-            self.memory[0x50 + i] = font[i];
-        }
+        self.memory[0x50..0x50 + font.len()].copy_from_slice(&font);
         Ok(())
     }
 
     pub fn load_rom(&mut self, rom: &ROM) -> Result<()> {
         if rom.len() > MEMORY_SIZE - RESERVED_MEMORY_SIZE {
-            return err!("can not load rom({} Bytes) that big than the machine memory({} Bytes)", rom.len(), self.memory.len());
+            return err!(
+                "can not load rom({} Bytes) that big than the machine memory({} Bytes)",
+                rom.len(),
+                self.memory.len()
+            );
         }
         let start = self.pc as usize;
         let end = start + rom.len();
@@ -142,19 +134,15 @@ impl Machine {
 
         // timer 60Hz ~= 16667 micros
         let timer_dur = Duration::from_micros(1000000 / 60);
-        thread::spawn(move || {
-            loop {
-                thread::sleep(timer_dur);
-                timer_tx.send(chrono::Utc::now()).unwrap();
-            }
+        thread::spawn(move || loop {
+            thread::sleep(timer_dur);
+            timer_tx.send(chrono::Utc::now()).unwrap();
         });
         // clock 500Hz ~= 2000 micros
         let clock_dur = Duration::from_micros(1000000 / 500);
-        thread::spawn(move || {
-            loop {
-                thread::sleep(clock_dur);
-                clock_tx.send(chrono::Utc::now()).unwrap();
-            }
+        thread::spawn(move || loop {
+            thread::sleep(clock_dur);
+            clock_tx.send(chrono::Utc::now()).unwrap();
         });
 
         let mut running = true;
@@ -171,26 +159,28 @@ impl Machine {
                         self.audio.pause();
                     };
                     self.video.draw()?;
-                    // debug!("timer: {}", msg.unwrap());
+                    debug!("timer: {}", msg.unwrap());
                 },
                 recv(clock_rx) -> msg => {
                     self.run_cycle(&mut running)?;
-                    // debug!("clock: {}", msg.unwrap());
+                    debug!("clock: {}", msg.unwrap());
                     debug!("registers: {:02?}", self.registers);
                 },
             };
-
-        };
+        }
         Ok(())
     }
 
     fn fetch(&mut self) -> Result<Instruction> {
-        let instr = Instruction::new(self.memory[self.pc as usize],self.memory[self.pc as usize + 1]);
+        let instr = Instruction::new(
+            self.memory[self.pc as usize],
+            self.memory[self.pc as usize + 1],
+        );
         self.pc += 2;
         Ok(instr)
     }
 
-    fn run_cycle(&mut self, running: &mut bool) -> Result<()>{
+    fn run_cycle(&mut self, running: &mut bool) -> Result<()> {
         let mut event_pump = self.sdl_context.event_pump()?;
         for event in event_pump.poll_iter() {
             match event {
@@ -213,39 +203,39 @@ impl Machine {
                 } else if instr.opcode == 0x00ee {
                     self.pc = self.stack.pop().unwrap(); // TODO: 需要后续编写错误处理
                 }
-            },
+            }
             0x1 => self.pc = instr.nnn(),
             0x2 => {
                 self.stack.push(self.pc);
                 self.pc = instr.nnn();
-            },
+            }
             0x3 => {
                 let x = self.registers[instr.x()];
                 if x == instr.nn() {
                     self.pc += 2;
                 }
-            },
+            }
             0x4 => {
                 let x = self.registers[instr.x()];
                 if x != instr.nn() {
                     self.pc += 2;
                 }
-            },
+            }
             0x5 => {
                 let x = self.registers[instr.x()];
                 let y = self.registers[instr.y()];
                 if x == y {
                     self.pc += 2;
                 }
-            },
+            }
             0x6 => {
                 self.registers[instr.x()] = instr.nn();
-            },
+            }
             0x7 => {
                 self.registers[instr.x()] = self.registers[instr.x()].overflowing_add(instr.nn()).0;
-
-            },
-            0x8 => { //8XYN
+            }
+            0x8 => {
+                //8XYN
                 let x = self.registers[instr.x()];
                 let y = self.registers[instr.y()];
                 match instr.n() {
@@ -253,78 +243,76 @@ impl Machine {
                     0x1 => self.registers[instr.x()] |= y,
                     0x2 => self.registers[instr.x()] &= y,
                     0x3 => self.registers[instr.x()] ^= y,
-                    0x4 => {
-                        match x.overflowing_add(y) {
-                            (n, false) => {
-                                self.registers[instr.x()] = n;
-                                self.registers[0xf] = 0;
-                            },
-                            (n, true) => {
-                                self.registers[instr.x()] = n;
-                                self.registers[0xf] = 1;
-                            },
+                    0x4 => match x.overflowing_add(y) {
+                        (n, false) => {
+                            self.registers[instr.x()] = n;
+                            self.registers[0xf] = 0;
+                        }
+                        (n, true) => {
+                            self.registers[instr.x()] = n;
+                            self.registers[0xf] = 1;
                         }
                     },
-                    0x5 => {
-                        match x.overflowing_sub(y) {
-                            (n, false) => {
-                                self.registers[instr.x()] = n;
-                                self.registers[0xf] = 1;
-                            },
-                            (n, true) => {
-                                self.registers[instr.x()] = n;
-                                self.registers[0xf] = 0;
-                            },
+                    0x5 => match x.overflowing_sub(y) {
+                        (n, false) => {
+                            self.registers[instr.x()] = n;
+                            self.registers[0xf] = 1;
+                        }
+                        (n, true) => {
+                            self.registers[instr.x()] = n;
+                            self.registers[0xf] = 0;
                         }
                     },
-                    0x7 => { 
-                        match y.overflowing_sub(x) {
-                            (n, false) => {
-                                self.registers[instr.x()] = n;
-                                self.registers[0xf] = 1;
-                            },
-                            (n, true) => {
-                                self.registers[instr.x()] = n;
-                                self.registers[0xf] = 0;
-                            },
+                    0x7 => match y.overflowing_sub(x) {
+                        (n, false) => {
+                            self.registers[instr.x()] = n;
+                            self.registers[0xf] = 1;
+                        }
+                        (n, true) => {
+                            self.registers[instr.x()] = n;
+                            self.registers[0xf] = 0;
                         }
                     },
-                    0x6 => { //ignore the y
+                    0x6 => {
+                        //ignore the y
                         self.registers[0xf] = x & 1;
                         self.registers[instr.x()] = x >> 1;
                     }
-                    0xe => { //ignore the y
-                        self.registers[0xf] = x >> 7;       
-                        self.registers[instr.x()] = x << 1;                
+                    0xe => {
+                        //ignore the y
+                        self.registers[0xf] = x >> 7;
+                        self.registers[instr.x()] = x << 1;
                     }
                     _ => (),
                 }
-            },
+            }
             0x9 => {
                 let x = self.registers[instr.x()];
                 let y = self.registers[instr.y()];
                 if x != y {
                     self.pc += 2;
                 }
-            },
+            }
             0xA => {
                 self.i = instr.nnn();
-            },
+            }
             0xB => {
                 self.pc = instr.nnn() + self.registers[0] as u16;
-            },
+            }
             0xC => {
                 let mut rng = rand::thread_rng();
                 let r1: u8 = rng.gen();
                 self.registers[instr.x()] = r1 & instr.nn();
-            },
+            }
             0xD => {
                 let x = (self.registers[instr.x()] % 64) as usize;
                 let y = (self.registers[instr.y()] % 32) as usize;
                 debug!("draw at: ({}, {})", x, y);
                 let n = instr.n() as usize;
-                self.registers[0xf] = self.video.flip(x, y, n, &self.memory[self.i as usize..self.i as usize + n])          
-            },
+                self.registers[0xf] =
+                    self.video
+                        .flip(x, y, n, &self.memory[self.i as usize..self.i as usize + n])
+            }
             0xE => {
                 let pressed_keys: HashSet<u8> = event_pump
                     .keyboard_state()
@@ -336,15 +324,21 @@ impl Machine {
                 match (required_key_pressed, instr.nn()) {
                     (true, 0x9E) => {
                         self.pc += 2;
-                        info!("instr: {:04X}, key {:X?} pressed, key {:X?} required", instr.opcode, pressed_keys, key)
-                    },
+                        info!(
+                            "instr: {:04X}, key {:X?} pressed, key {:X?} required",
+                            instr.opcode, pressed_keys, key
+                        )
+                    }
                     (false, 0xA1) => {
                         self.pc += 2;
-                        info!("instr: {:04X}, key {:X?} pressed, key {:X?} not required", instr.opcode, pressed_keys, key)
-                    },
+                        info!(
+                            "instr: {:04X}, key {:X?} pressed, key {:X?} not required",
+                            instr.opcode, pressed_keys, key
+                        )
+                    }
                     _ => (),
                 }
-            },
+            }
             0xF => {
                 let x = instr.x();
                 match instr.nn() {
@@ -358,19 +352,18 @@ impl Machine {
                             .pressed_scancodes()
                             .filter_map(|s| self.keyboard.scancode_to_key(&s))
                             .collect();
-                        if pressed_keys.len() == 0 {
+                        if pressed_keys.is_empty() {
                             self.pc -= 2;
                         } else {
                             self.registers[instr.x()] = pressed_keys[0];
                             info!("key {:X} is being pressed", pressed_keys[0]);
                         }
-                        
-                    },
+                    }
                     0x29 => {
                         let char = self.registers[instr.x()];
                         self.i = 0x50 + 5 * char as u16;
                         debug!("look char: {:X}", char);
-                    },
+                    }
                     0x33 => {
                         let mut x = self.registers[instr.x()];
                         self.memory[self.i as usize + 2] = x % 10;
@@ -378,20 +371,23 @@ impl Machine {
                         self.memory[self.i as usize + 1] = x % 10;
                         x /= 10;
                         self.memory[self.i as usize] = x;
-                        debug!("x: {}, BCD: {:?}", self.registers[instr.x()], &self.memory[self.i as usize..self.i as usize + 3]);
-                    },
+                        debug!(
+                            "x: {}, BCD: {:?}",
+                            self.registers[instr.x()],
+                            &self.memory[self.i as usize..self.i as usize + 3]
+                        );
+                    }
                     0x55 => {
                         for n in 0..=instr.x() {
                             self.memory[self.i as usize + n] = self.registers[n];
                         }
-                    },
+                    }
                     0x65 => {
                         for n in 0..=instr.x() {
                             self.registers[n] = self.memory[self.i as usize + n];
                         }
-                    },
-                    _ => ()
-                    
+                    }
+                    _ => (),
                 }
             }
             _ => (),
@@ -399,4 +395,3 @@ impl Machine {
         Ok(())
     }
 }
-

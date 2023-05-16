@@ -1,54 +1,44 @@
-use std::error::Error;
 use std::collections::HashMap;
+use std::error::Error;
 
 use sdl2::keyboard::Scancode;
 
-use crate::Result;
 use crate::err;
+use crate::Result;
 
 pub struct KeyBoard {
     keys_map: HashMap<u8, Scancode>,
-    scancodes_map: HashMap<Scancode, u8>
+    scancodes_map: HashMap<Scancode, u8>,
 }
 
 impl KeyBoard {
-    pub fn new(layout: &HashMap<u8, Scancode>) -> Result<Self>{
-        let mut keys_map = HashMap::with_capacity(16);
+    pub fn new(layout: &HashMap<u8, Scancode>) -> Result<Self> {
+        let keys_map = layout.clone();
         let mut scancodes_map = HashMap::with_capacity(16);
         if layout.len() != 16 {
             return err!("layout will not be matched, the layout length is not 16");
         }
-        keys_map = layout.clone();
         for (&key, &scancode) in layout {
             scancodes_map.insert(scancode, key);
         }
         if keys_map.len() != 16 || scancodes_map.len() != 16 {
             return err!("layout will not be matched, the layout length is not 16");
         }
-        Ok(KeyBoard{
-            keys_map, scancodes_map
+        Ok(KeyBoard {
+            keys_map,
+            scancodes_map,
         })
     }
 
-    pub fn default() -> Self {
-        Self::new(&Self::default_keyboard_layout()).unwrap()
-    }
-
     pub fn key_to_scancode(&self, key: &u8) -> Option<Scancode> {
-        match self.keys_map.get(key) {
-            Some(&k) => Some(k),
-            None => None,
-        }
+        self.keys_map.get(key).copied()
     }
 
     pub fn scancode_to_key(&self, scancode: &Scancode) -> Option<u8> {
-        match self.scancodes_map.get(scancode) {
-            Some(&k) => Some(k),
-            None => None,
-        }
+        self.scancodes_map.get(scancode).copied()
     }
-    
-    fn default_keyboard_layout() -> HashMap<u8, Scancode>{
+
+    fn default_keyboard_layout() -> HashMap<u8, Scancode> {
         let mut default_layout: HashMap<u8, Scancode> = HashMap::new();
         default_layout.insert(0, Scancode::X);
         default_layout.insert(1, Scancode::Num1);
@@ -67,5 +57,11 @@ impl KeyBoard {
         default_layout.insert(0xE, Scancode::F);
         default_layout.insert(0xF, Scancode::V);
         default_layout
+    }
+}
+
+impl Default for KeyBoard {
+    fn default() -> Self {
+        Self::new(&Self::default_keyboard_layout()).unwrap()
     }
 }

@@ -1,22 +1,20 @@
-use std::error::Error;
-
-use rand::Rng;
 use rand::thread_rng;
-use sdl2::AudioSubsystem;
+use rand::Rng;
 use sdl2::audio::AudioCallback;
 use sdl2::audio::AudioDevice;
 use sdl2::audio::AudioSpecDesired;
+use sdl2::AudioSubsystem;
 
 use crate::Result;
-use crate::err;
 
+#[allow(dead_code)]
 pub(crate) struct Audio {
     sdl_audio: AudioSubsystem,
     device: AudioDevice<MyCallback>,
 }
 
 impl Audio {
-    pub fn new(audio_subsystem: AudioSubsystem) -> Result<Self>{
+    pub fn new(audio_subsystem: AudioSubsystem) -> Result<Self> {
         let desired_spec = AudioSpecDesired {
             freq: Some(44_100),
             channels: Some(1), // mono
@@ -32,7 +30,7 @@ impl Audio {
 
         Ok(Self {
             sdl_audio: audio_subsystem,
-            device
+            device,
         })
     }
 
@@ -56,7 +54,7 @@ impl AudioCallback for MyCallback {
 
         // Generate white noise
         for x in out.iter_mut() {
-            *x = (rng.gen_range(0.0..2.0) - 1.0) * self.volume;  //TODO: white noise to beeps
+            *x = (rng.gen_range(0.0..2.0) - 1.0) * self.volume; //TODO: white noise to beeps
         }
     }
 }
