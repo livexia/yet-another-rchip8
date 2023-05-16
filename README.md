@@ -21,8 +21,9 @@ brew install sdl2 sdl2_mixer sdl2_image sdl2_ttf sdl2_gfx
 ```
 
 example:
+
 ```
-$env:RUST_LOG="debug"; cargo run -- --rom .\test\TETRIS
+cargo run -- --rom .\test\TETRIS
 ```
 
 ## 部分参考内容：
