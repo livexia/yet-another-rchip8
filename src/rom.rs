@@ -35,4 +35,3 @@ impl ROM {
         self.length == 0
     }
 }
-

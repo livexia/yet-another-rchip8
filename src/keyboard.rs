@@ -11,7 +11,6 @@ pub struct KeyBoard {
 }
 
 pub struct KeyMap {
-    keys_map: HashMap<u8, Scancode>,
     scancodes_map: HashMap<Scancode, u8>,
 }
 
@@ -43,50 +42,36 @@ impl KeyBoard {
 }
 
 impl KeyMap {
-    pub fn new(layout: &HashMap<u8, Scancode>) -> Result<Self> {
-        let keys_map = layout.clone();
-        let mut scancodes_map = HashMap::with_capacity(16);
+    pub fn new(layout: &HashMap<Scancode, u8>) -> Result<Self> {
+        let scancodes_map = layout.clone();
         if layout.len() != 16 {
             return err!("layout will not be matched, the layout length is not 16");
         }
-        for (&key, &scancode) in layout {
-            scancodes_map.insert(scancode, key);
-        }
-        if keys_map.len() != 16 || scancodes_map.len() != 16 {
-            return err!("layout will not be matched, the layout length is not 16");
-        }
-        Ok(KeyMap {
-            keys_map,
-            scancodes_map,
-        })
-    }
-
-    pub fn key_to_scancode(&self, key: &u8) -> Option<Scancode> {
-        self.keys_map.get(key).copied()
+        Ok(KeyMap { scancodes_map })
     }
 
     pub fn scancode_to_key(&self, scancode: &Scancode) -> Option<u8> {
         self.scancodes_map.get(scancode).copied()
     }
 
-    fn default_keyboard_layout() -> HashMap<u8, Scancode> {
-        let mut default_layout: HashMap<u8, Scancode> = HashMap::new();
-        default_layout.insert(0, Scancode::X);
-        default_layout.insert(1, Scancode::Num1);
-        default_layout.insert(2, Scancode::Num2);
-        default_layout.insert(3, Scancode::Num3);
-        default_layout.insert(4, Scancode::Q);
-        default_layout.insert(5, Scancode::W);
-        default_layout.insert(6, Scancode::E);
-        default_layout.insert(7, Scancode::A);
-        default_layout.insert(8, Scancode::S);
-        default_layout.insert(9, Scancode::D);
-        default_layout.insert(0xA, Scancode::Z);
-        default_layout.insert(0xB, Scancode::C);
-        default_layout.insert(0xC, Scancode::Num4);
-        default_layout.insert(0xD, Scancode::R);
-        default_layout.insert(0xE, Scancode::F);
-        default_layout.insert(0xF, Scancode::V);
+    fn default_keyboard_layout() -> HashMap<Scancode, u8> {
+        let mut default_layout: HashMap<Scancode, u8> = HashMap::with_capacity(16);
+        default_layout.insert(Scancode::X, 0);
+        default_layout.insert(Scancode::Num1, 1);
+        default_layout.insert(Scancode::Num2, 2);
+        default_layout.insert(Scancode::Num3, 3);
+        default_layout.insert(Scancode::Q, 4);
+        default_layout.insert(Scancode::W, 5);
+        default_layout.insert(Scancode::E, 6);
+        default_layout.insert(Scancode::A, 7);
+        default_layout.insert(Scancode::S, 8);
+        default_layout.insert(Scancode::D, 9);
+        default_layout.insert(Scancode::Z, 0xA);
+        default_layout.insert(Scancode::C, 0xB);
+        default_layout.insert(Scancode::Num4, 0xC);
+        default_layout.insert(Scancode::R, 0xD);
+        default_layout.insert(Scancode::F, 0xE);
+        default_layout.insert(Scancode::V, 0xF);
         default_layout
     }
 }
