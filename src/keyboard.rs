@@ -7,29 +7,17 @@ use crate::err;
 use crate::Result;
 
 pub struct KeyBoard {
-    keys_map: HashMap<u8, Scancode>,
-    scancodes_map: HashMap<Scancode, u8>,
     keys: [bool; 16],
 }
 
+pub struct KeyMap {
+    keys_map: HashMap<u8, Scancode>,
+    scancodes_map: HashMap<Scancode, u8>,
+}
+
 impl KeyBoard {
-    pub fn new(layout: &HashMap<u8, Scancode>) -> Result<Self> {
-        let keys_map = layout.clone();
-        let mut scancodes_map = HashMap::with_capacity(16);
-        if layout.len() != 16 {
-            return err!("layout will not be matched, the layout length is not 16");
-        }
-        for (&key, &scancode) in layout {
-            scancodes_map.insert(scancode, key);
-        }
-        if keys_map.len() != 16 || scancodes_map.len() != 16 {
-            return err!("layout will not be matched, the layout length is not 16");
-        }
-        Ok(KeyBoard {
-            keys_map,
-            scancodes_map,
-            keys: [false; 16],
-        })
+    pub fn new() -> Self {
+        Self { keys: [false; 16] }
     }
 
     pub fn key_down(&mut self, key: u8) {
@@ -42,6 +30,35 @@ impl KeyBoard {
 
     pub fn is_key_down(&self, key: u8) -> bool {
         self.keys[key as usize]
+    }
+
+    pub fn first_down_key(&self) -> Option<u8> {
+        self.keys
+            .iter()
+            .copied()
+            .enumerate()
+            .find(|(_, b)| *b)
+            .map(|(i, _)| i as u8)
+    }
+}
+
+impl KeyMap {
+    pub fn new(layout: &HashMap<u8, Scancode>) -> Result<Self> {
+        let keys_map = layout.clone();
+        let mut scancodes_map = HashMap::with_capacity(16);
+        if layout.len() != 16 {
+            return err!("layout will not be matched, the layout length is not 16");
+        }
+        for (&key, &scancode) in layout {
+            scancodes_map.insert(scancode, key);
+        }
+        if keys_map.len() != 16 || scancodes_map.len() != 16 {
+            return err!("layout will not be matched, the layout length is not 16");
+        }
+        Ok(KeyMap {
+            keys_map,
+            scancodes_map,
+        })
     }
 
     pub fn key_to_scancode(&self, key: &u8) -> Option<Scancode> {
@@ -75,6 +92,12 @@ impl KeyBoard {
 }
 
 impl Default for KeyBoard {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for KeyMap {
     fn default() -> Self {
         Self::new(&Self::default_keyboard_layout()).unwrap()
     }

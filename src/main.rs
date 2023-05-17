@@ -24,7 +24,7 @@ use rand::Rng;
 
 use audio::Audio;
 use instruction::Instruction;
-use keyboard::KeyBoard;
+use keyboard::{KeyBoard, KeyMap};
 use rom::ROM;
 use video::Video;
 
@@ -182,6 +182,7 @@ impl Machine {
 
     fn run_cycle(&mut self, running: &mut bool) -> Result<()> {
         let mut event_pump = self.sdl_context.event_pump()?;
+        let key_map = KeyMap::default();
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. }
@@ -192,14 +193,22 @@ impl Machine {
                     *running = false;
                 }
                 Event::KeyDown {
-                    keycode, scancode, ..
+                    scancode: Some(scancode),
+                    ..
                 } => {
-                    println!("KeyDown: {:?} {:?}", keycode, scancode);
+                    if let Some(key) = key_map.scancode_to_key(&scancode) {
+                        self.keyboard.key_down(key);
+                        debug!("KeyDown: {:?} -> {}", scancode, key);
+                    }
                 }
                 Event::KeyUp {
-                    keycode, scancode, ..
+                    scancode: Some(scancode),
+                    ..
                 } => {
-                    println!("KeyUp: {:?} {:?}", keycode, scancode);
+                    if let Some(key) = key_map.scancode_to_key(&scancode) {
+                        self.keyboard.key_up(key);
+                        debug!("KeyUp: {:?} -> {}", scancode, key);
+                    }
                 }
                 _ => {}
             }
@@ -319,9 +328,7 @@ impl Machine {
             }
             0xE => {
                 let key = self.registers[x];
-                let required_key_pressed = event_pump
-                    .keyboard_state()
-                    .is_scancode_pressed(self.keyboard.key_to_scancode(&key).unwrap());
+                let required_key_pressed = self.keyboard.is_key_down(key);
                 match (required_key_pressed, nn) {
                     (true, 0x9E) => {
                         self.pc += 2;
@@ -340,16 +347,11 @@ impl Machine {
                 0x18 => self.sound_timer = self.registers[x],
                 0x1E => self.i += self.registers[x] as u16,
                 0x0A => {
-                    let pressed_keys: Vec<u8> = event_pump
-                        .keyboard_state()
-                        .pressed_scancodes()
-                        .filter_map(|s| self.keyboard.scancode_to_key(&s))
-                        .collect();
-                    if pressed_keys.is_empty() {
-                        self.pc -= 2;
+                    if let Some(pressed_key) = self.keyboard.first_down_key() {
+                        self.registers[x] = pressed_key;
+                        info!("key {:X} is being pressed", pressed_key);
                     } else {
-                        self.registers[x] = pressed_keys[0];
-                        info!("key {:X} is being pressed", pressed_keys[0]);
+                        self.pc -= 2;
                     }
                 }
                 0x29 => {
