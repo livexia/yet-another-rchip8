@@ -69,8 +69,9 @@ struct Machine {
     memory: [u8; MEMORY_SIZE],
     registers: [u8; REGISTER_COUNT],
     pc: u16,
+    // index register
     i: u16,
-    stack: Vec<u16>,
+    stack: Vec<u16>, // TODO: should be [u16; 16] and with a stack pointer
     delay_timer: u8,
     sound_timer: u8,
     keyboard: KeyBoard,
@@ -196,119 +197,113 @@ impl Machine {
         }
         let instr = self.fetch()?;
         debug!("execute: {:04X}, pc: {:04X}", instr.opcode, self.pc - 2);
-        match instr.kind() {
+        let opcode = instr.opcode;
+        let (kind, x, y, n, nn, nnn) = instr.decode();
+        match kind {
             0x0 => {
-                if instr.opcode == 0x00e0 {
+                if opcode == 0x00e0 {
                     self.video.clear();
-                } else if instr.opcode == 0x00ee {
+                } else if opcode == 0x00ee {
                     self.pc = self.stack.pop().unwrap(); // TODO: 需要后续编写错误处理
                 }
             }
-            0x1 => self.pc = instr.nnn(),
+            0x1 => self.pc = nnn,
             0x2 => {
                 self.stack.push(self.pc);
-                self.pc = instr.nnn();
+                self.pc = nnn;
             }
             0x3 => {
-                let x = self.registers[instr.x()];
-                if x == instr.nn() {
+                if self.registers[x] == nn {
                     self.pc += 2;
                 }
             }
             0x4 => {
-                let x = self.registers[instr.x()];
-                if x != instr.nn() {
+                if self.registers[x] != nn {
                     self.pc += 2;
                 }
             }
             0x5 => {
-                let x = self.registers[instr.x()];
-                let y = self.registers[instr.y()];
-                if x == y {
+                if self.registers[x] == self.registers[y] {
                     self.pc += 2;
                 }
             }
             0x6 => {
-                self.registers[instr.x()] = instr.nn();
+                self.registers[x] = nn;
             }
             0x7 => {
-                self.registers[instr.x()] = self.registers[instr.x()].overflowing_add(instr.nn()).0;
+                self.registers[x] = self.registers[x].overflowing_add(nn).0;
             }
             0x8 => {
                 //8XYN
-                let x = self.registers[instr.x()];
-                let y = self.registers[instr.y()];
-                match instr.n() {
-                    0x0 => self.registers[instr.x()] = y,
-                    0x1 => self.registers[instr.x()] |= y,
-                    0x2 => self.registers[instr.x()] &= y,
-                    0x3 => self.registers[instr.x()] ^= y,
-                    0x4 => match x.overflowing_add(y) {
-                        (n, false) => {
-                            self.registers[instr.x()] = n;
+                match n {
+                    0x0 => self.registers[x] = self.registers[y],
+                    0x1 => self.registers[x] |= self.registers[y],
+                    0x2 => self.registers[x] &= self.registers[y],
+                    0x3 => self.registers[x] ^= self.registers[y],
+                    0x4 => match self.registers[x].overflowing_add(self.registers[y]) {
+                        (val, false) => {
+                            self.registers[x] = val;
                             self.registers[0xf] = 0;
                         }
-                        (n, true) => {
-                            self.registers[instr.x()] = n;
+                        (val, true) => {
+                            self.registers[x] = val;
                             self.registers[0xf] = 1;
                         }
                     },
-                    0x5 => match x.overflowing_sub(y) {
-                        (n, false) => {
-                            self.registers[instr.x()] = n;
+                    0x5 => match self.registers[x].overflowing_sub(self.registers[y]) {
+                        (val, false) => {
+                            self.registers[x] = val;
                             self.registers[0xf] = 1;
                         }
-                        (n, true) => {
-                            self.registers[instr.x()] = n;
+                        (val, true) => {
+                            self.registers[x] = val;
                             self.registers[0xf] = 0;
                         }
                     },
-                    0x7 => match y.overflowing_sub(x) {
-                        (n, false) => {
-                            self.registers[instr.x()] = n;
+                    0x7 => match self.registers[x].overflowing_sub(self.registers[y]) {
+                        (val, false) => {
+                            self.registers[x] = val;
                             self.registers[0xf] = 1;
                         }
-                        (n, true) => {
-                            self.registers[instr.x()] = n;
+                        (val, true) => {
+                            self.registers[x] = val;
                             self.registers[0xf] = 0;
                         }
                     },
                     0x6 => {
                         //ignore the y
-                        self.registers[0xf] = x & 1;
-                        self.registers[instr.x()] = x >> 1;
+                        self.registers[0xf] = self.registers[x] & 1;
+                        self.registers[x] >>= 1;
                     }
                     0xe => {
                         //ignore the y
-                        self.registers[0xf] = x >> 7;
-                        self.registers[instr.x()] = x << 1;
+                        self.registers[0xf] = self.registers[x] >> 7;
+                        self.registers[x] <<= 1;
                     }
                     _ => (),
                 }
             }
             0x9 => {
-                let x = self.registers[instr.x()];
-                let y = self.registers[instr.y()];
-                if x != y {
+                if self.registers[x] != self.registers[y] {
                     self.pc += 2;
                 }
             }
             0xA => {
-                self.i = instr.nnn();
+                self.i = nnn;
             }
             0xB => {
-                self.pc = instr.nnn() + self.registers[0] as u16;
+                self.pc = nnn + self.registers[0] as u16;
             }
             0xC => {
                 let mut rng = rand::thread_rng();
                 let r1: u8 = rng.gen();
-                self.registers[instr.x()] = r1 & instr.nn();
+                self.registers[x] = r1 & nn;
             }
             0xD => {
-                let x = (self.registers[instr.x()] % 64) as usize;
-                let y = (self.registers[instr.y()] % 32) as usize;
+                let x = (self.registers[x] % 64) as usize;
+                let y = (self.registers[y] % 32) as usize;
                 debug!("draw at: ({}, {})", x, y);
-                let n = instr.n() as usize;
+                let n = n as usize;
                 self.registers[0xf] =
                     self.video
                         .flip(x, y, n, &self.memory[self.i as usize..self.i as usize + n])
@@ -319,77 +314,72 @@ impl Machine {
                     .pressed_scancodes()
                     .filter_map(|s| self.keyboard.scancode_to_key(&s))
                     .collect();
-                let key = self.registers[instr.x()];
+                let key = self.registers[x];
                 let required_key_pressed = pressed_keys.contains(&key);
-                match (required_key_pressed, instr.nn()) {
+                match (required_key_pressed, nn) {
                     (true, 0x9E) => {
                         self.pc += 2;
                         info!(
                             "instr: {:04X}, key {:X?} pressed, key {:X?} required",
-                            instr.opcode, pressed_keys, key
+                            opcode, pressed_keys, key
                         )
                     }
                     (false, 0xA1) => {
                         self.pc += 2;
                         info!(
                             "instr: {:04X}, key {:X?} pressed, key {:X?} not required",
-                            instr.opcode, pressed_keys, key
+                            opcode, pressed_keys, key
                         )
                     }
                     _ => (),
                 }
             }
-            0xF => {
-                let x = instr.x();
-                match instr.nn() {
-                    0x7 => self.registers[x] = self.delay_timer,
-                    0x15 => self.delay_timer = self.registers[x],
-                    0x18 => self.sound_timer = self.registers[x],
-                    0x1E => self.i += self.registers[x] as u16,
-                    0x0A => {
-                        let pressed_keys: Vec<u8> = event_pump
-                            .keyboard_state()
-                            .pressed_scancodes()
-                            .filter_map(|s| self.keyboard.scancode_to_key(&s))
-                            .collect();
-                        if pressed_keys.is_empty() {
-                            self.pc -= 2;
-                        } else {
-                            self.registers[instr.x()] = pressed_keys[0];
-                            info!("key {:X} is being pressed", pressed_keys[0]);
-                        }
+            0xF => match nn {
+                0x7 => self.registers[x] = self.delay_timer,
+                0x15 => self.delay_timer = self.registers[x],
+                0x18 => self.sound_timer = self.registers[x],
+                0x1E => self.i += self.registers[x] as u16,
+                0x0A => {
+                    let pressed_keys: Vec<u8> = event_pump
+                        .keyboard_state()
+                        .pressed_scancodes()
+                        .filter_map(|s| self.keyboard.scancode_to_key(&s))
+                        .collect();
+                    if pressed_keys.is_empty() {
+                        self.pc -= 2;
+                    } else {
+                        self.registers[x] = pressed_keys[0];
+                        info!("key {:X} is being pressed", pressed_keys[0]);
                     }
-                    0x29 => {
-                        let char = self.registers[instr.x()];
-                        self.i = 0x50 + 5 * char as u16;
-                        debug!("look char: {:X}", char);
-                    }
-                    0x33 => {
-                        let mut x = self.registers[instr.x()];
-                        self.memory[self.i as usize + 2] = x % 10;
-                        x /= 10;
-                        self.memory[self.i as usize + 1] = x % 10;
-                        x /= 10;
-                        self.memory[self.i as usize] = x;
-                        debug!(
-                            "x: {}, BCD: {:?}",
-                            self.registers[instr.x()],
-                            &self.memory[self.i as usize..self.i as usize + 3]
-                        );
-                    }
-                    0x55 => {
-                        for n in 0..=instr.x() {
-                            self.memory[self.i as usize + n] = self.registers[n];
-                        }
-                    }
-                    0x65 => {
-                        for n in 0..=instr.x() {
-                            self.registers[n] = self.memory[self.i as usize + n];
-                        }
-                    }
-                    _ => (),
                 }
-            }
+                0x29 => {
+                    let char = self.registers[x];
+                    self.i = 0x50 + 5 * char as u16;
+                    debug!("look char: {:X}", char);
+                }
+                0x33 => {
+                    let mut x_val = self.registers[x];
+                    self.memory[self.i as usize + 2] = x_val % 10;
+                    x_val /= 10;
+                    self.memory[self.i as usize + 1] = x_val % 10;
+                    x_val /= 10;
+                    self.memory[self.i as usize] = x_val;
+                    debug!(
+                        "x: {}, BCD: {:?}",
+                        self.registers[x],
+                        &self.memory[self.i as usize..self.i as usize + 3]
+                    );
+                }
+                0x55 => {
+                    let i = self.i as usize;
+                    self.memory[i..=i + x].copy_from_slice(&self.registers[..=x]);
+                }
+                0x65 => {
+                    let i = self.i as usize;
+                    self.registers[..=x].copy_from_slice(&self.memory[i..=i + x]);
+                }
+                _ => (),
+            },
             _ => (),
         }
         Ok(())

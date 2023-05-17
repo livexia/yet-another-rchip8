@@ -7,7 +7,7 @@ pub struct Instruction {
 impl Instruction {
     pub fn new(high: u8, low: u8) -> Self {
         Instruction {
-            opcode: (high as u16 ) << 8 | low as u16
+            opcode: (high as u16) << 8 | low as u16,
         }
     }
 
@@ -34,6 +34,17 @@ impl Instruction {
     pub fn nnn(&self) -> u16 {
         self.opcode & 0xfff
     }
+
+    pub fn decode(&self) -> (u8, usize, usize, u8, u8, u16) {
+        (
+            self.kind(),
+            self.x(),
+            self.y(),
+            self.n(),
+            self.nn(),
+            self.nnn(),
+        )
+    }
 }
 
 impl fmt::Debug for Instruction {
@@ -49,5 +60,3 @@ impl fmt::Debug for Instruction {
             .finish()
     }
 }
-
-
