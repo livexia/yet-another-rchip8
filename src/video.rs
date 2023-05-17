@@ -4,8 +4,10 @@ use crate::Result;
 
 #[allow(dead_code)]
 pub struct Video {
+    // TODO: seperate sdl2 video with CHIP8 video
     sdl_video: VideoSubsystem,
     canvas: WindowCanvas,
+
     width: usize,
     height: usize,
     grid: Vec<Vec<u8>>,
@@ -13,6 +15,7 @@ pub struct Video {
 
 impl Video {
     pub fn new(video_subsystem: VideoSubsystem, width: usize, height: usize) -> Result<Self> {
+        // TODO: create sdl2 canvas bsed of CHIP8 video
         let window = video_subsystem
             .window("yet-another-rchip8", 640, 320)
             .position_centered()
@@ -30,6 +33,7 @@ impl Video {
         })
     }
 
+    // TODO: find a better way to update the grid drawing
     pub fn draw(&mut self) -> Result<()> {
         self.canvas
             .set_draw_color(sdl2::pixels::Color::RGBA(0, 0, 0, 255));
@@ -47,6 +51,8 @@ impl Video {
         Ok(())
     }
 
+    // TODO: this function name should be the draw,
+    // because this is CHIP8 video's drawing function
     pub fn flip(&mut self, x: usize, y: usize, n: usize, data: &[u8]) -> u8 {
         let mut flag = 0;
         for (offset_y, bits) in data.iter().enumerate().take(n) {

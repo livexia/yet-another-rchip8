@@ -158,6 +158,7 @@ impl Machine {
                     } else {
                         self.audio.pause();
                     };
+                    // TODO: draw sdl2 canvas based of CHIP.video
                     self.video.draw()?;
                     debug!("timer: {}", msg.unwrap());
                 },
@@ -181,7 +182,10 @@ impl Machine {
     }
 
     fn run_cycle(&mut self, running: &mut bool) -> Result<()> {
+        // TODO: event_pump processing should be move out of CHIP8 run
         let mut event_pump = self.sdl_context.event_pump()?;
+
+        // TODO: Support user define key mapping
         let key_map = KeyMap::default();
         for event in event_pump.poll_iter() {
             match event {
