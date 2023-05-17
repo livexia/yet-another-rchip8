@@ -9,7 +9,6 @@ extern crate log;
 extern crate clap;
 extern crate sdl2;
 
-use std::collections::HashSet;
 use std::error::Error;
 use std::result;
 use std::thread;
@@ -192,6 +191,16 @@ impl Machine {
                 } => {
                     *running = false;
                 }
+                Event::KeyDown {
+                    keycode, scancode, ..
+                } => {
+                    println!("KeyDown: {:?} {:?}", keycode, scancode);
+                }
+                Event::KeyUp {
+                    keycode, scancode, ..
+                } => {
+                    println!("KeyUp: {:?} {:?}", keycode, scancode);
+                }
                 _ => {}
             }
         }
@@ -309,27 +318,18 @@ impl Machine {
                         .flip(x, y, n, &self.memory[self.i as usize..self.i as usize + n])
             }
             0xE => {
-                let pressed_keys: HashSet<u8> = event_pump
-                    .keyboard_state()
-                    .pressed_scancodes()
-                    .filter_map(|s| self.keyboard.scancode_to_key(&s))
-                    .collect();
                 let key = self.registers[x];
-                let required_key_pressed = pressed_keys.contains(&key);
+                let required_key_pressed = event_pump
+                    .keyboard_state()
+                    .is_scancode_pressed(self.keyboard.key_to_scancode(&key).unwrap());
                 match (required_key_pressed, nn) {
                     (true, 0x9E) => {
                         self.pc += 2;
-                        info!(
-                            "instr: {:04X}, key {:X?} pressed, key {:X?} required",
-                            opcode, pressed_keys, key
-                        )
+                        info!("instr: {:04X}, key {:X?} pressed", opcode, key)
                     }
                     (false, 0xA1) => {
                         self.pc += 2;
-                        info!(
-                            "instr: {:04X}, key {:X?} pressed, key {:X?} not required",
-                            opcode, pressed_keys, key
-                        )
+                        info!("instr: {:04X}, key {:X?} not pressed", opcode, key)
                     }
                     _ => (),
                 }

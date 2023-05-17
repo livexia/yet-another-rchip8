@@ -9,6 +9,7 @@ use crate::Result;
 pub struct KeyBoard {
     keys_map: HashMap<u8, Scancode>,
     scancodes_map: HashMap<Scancode, u8>,
+    keys: [bool; 16],
 }
 
 impl KeyBoard {
@@ -27,7 +28,20 @@ impl KeyBoard {
         Ok(KeyBoard {
             keys_map,
             scancodes_map,
+            keys: [false; 16],
         })
+    }
+
+    pub fn key_down(&mut self, key: u8) {
+        self.keys[key as usize] = true;
+    }
+
+    pub fn key_up(&mut self, key: u8) {
+        self.keys[key as usize] = false;
+    }
+
+    pub fn is_key_down(&self, key: u8) -> bool {
+        self.keys[key as usize]
     }
 
     pub fn key_to_scancode(&self, key: &u8) -> Option<Scancode> {
