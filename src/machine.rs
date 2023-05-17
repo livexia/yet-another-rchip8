@@ -283,6 +283,8 @@ impl Machine {
                     if let Some(pressed_key) = self.keyboard.first_down_key() {
                         self.registers[x] = pressed_key;
                         info!("key {:X} is being pressed", pressed_key);
+                        // after pressed, key should be up. https://github.com/livexia/yet-another-rchip8/issues/10#issue-1713963954
+                        self.keyboard.key_up(pressed_key);
                     } else {
                         self.pc -= 2;
                     }
