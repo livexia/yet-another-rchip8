@@ -218,36 +218,9 @@ impl Machine {
                     0x1 => self.registers[x] |= self.registers[y],
                     0x2 => self.registers[x] &= self.registers[y],
                     0x3 => self.registers[x] ^= self.registers[y],
-                    0x4 => match self.registers[x].overflowing_add(self.registers[y]) {
-                        (val, false) => {
-                            self.registers[x] = val;
-                            self.registers[0xf] = 0;
-                        }
-                        (val, true) => {
-                            self.registers[x] = val;
-                            self.registers[0xf] = 1;
-                        }
-                    },
-                    0x5 => match self.registers[x].overflowing_sub(self.registers[y]) {
-                        (val, false) => {
-                            self.registers[x] = val;
-                            self.registers[0xf] = 1;
-                        }
-                        (val, true) => {
-                            self.registers[x] = val;
-                            self.registers[0xf] = 0;
-                        }
-                    },
-                    0x7 => match self.registers[x].overflowing_sub(self.registers[y]) {
-                        (val, false) => {
-                            self.registers[x] = val;
-                            self.registers[0xf] = 1;
-                        }
-                        (val, true) => {
-                            self.registers[x] = val;
-                            self.registers[0xf] = 0;
-                        }
-                    },
+                    0x4 => self.add(x, y),  // 8xy4
+                    0x5 => self.sub(x, y),  // 8xy5
+                    0x7 => self.subb(x, y), // 8xy7
                     0x6 => {
                         //ignore the y
                         self.registers[0xf] = self.registers[x] & 1;
@@ -345,5 +318,26 @@ impl Machine {
             _ => (),
         }
         Ok(())
+    }
+
+    /// 8xy4
+    fn add(&mut self, x: usize, y: usize) {
+        let (val, flag) = self.registers[x].overflowing_add(self.registers[y]);
+        self.registers[0xf] = flag as u8;
+        self.registers[x] = val;
+    }
+
+    /// 8xy5
+    fn sub(&mut self, x: usize, y: usize) {
+        let (val, flag) = self.registers[x].overflowing_sub(self.registers[y]);
+        self.registers[0xf] = (!flag) as u8;
+        self.registers[x] = val;
+    }
+
+    /// 8xy7
+    fn subb(&mut self, x: usize, y: usize) {
+        let (val, flag) = self.registers[y].overflowing_sub(self.registers[x]);
+        self.registers[0xf] = (!flag) as u8;
+        self.registers[x] = val;
     }
 }
