@@ -193,12 +193,12 @@ fn sender(
     let timer_dur = Duration::from_micros(1000000 / timer_freq);
     thread::spawn(move || loop {
         thread::sleep(timer_dur);
-        timer_tx.send(chrono::Utc::now()).unwrap();
+        let _ = timer_tx.send(chrono::Utc::now());
     });
     let clock_dur = Duration::from_micros(1000000 / clock_freq);
     thread::spawn(move || loop {
         thread::sleep(clock_dur);
-        clock_tx.send(chrono::Utc::now()).unwrap();
+        let _ = clock_tx.send(chrono::Utc::now());
     });
 }
 
