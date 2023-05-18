@@ -12,7 +12,8 @@ extern crate log;
 extern crate clap;
 extern crate sdl2;
 
-use crossbeam_channel::{select, unbounded};
+use chrono::{DateTime, Utc};
+use crossbeam_channel::{select, unbounded, Sender};
 use sdl2::keyboard::{Keycode, Scancode};
 use sdl2::render::Canvas;
 use sdl2::video::Window;
@@ -36,17 +37,17 @@ macro_rules! err {
 
 pub type Result<T> = result::Result<T, Box<dyn Error>>;
 
-pub struct KeyMap {
+pub struct Sdl2KeyMap {
     scancodes_map: HashMap<Scancode, u8>,
 }
 
-impl KeyMap {
+impl Sdl2KeyMap {
     pub fn new(layout: &HashMap<Scancode, u8>) -> Result<Self> {
         let scancodes_map = layout.clone();
         if layout.len() != 16 {
             return err!("layout will not be matched, the layout length is not 16");
         }
-        Ok(KeyMap { scancodes_map })
+        Ok(Sdl2KeyMap { scancodes_map })
     }
 
     pub fn scancode_to_key(&self, scancode: &Scancode) -> Option<u8> {
@@ -75,17 +76,17 @@ impl KeyMap {
     }
 }
 
-impl Default for KeyMap {
+impl Default for Sdl2KeyMap {
     fn default() -> Self {
         Self::new(&Self::default_keyboard_layout()).unwrap()
     }
 }
 
-fn process_key_event(
+fn sdl2_key_event(
     machine: &mut Machine<Sdl2Audio>,
     running: &mut bool,
     event_pump: &mut EventPump,
-    key_map: &KeyMap,
+    key_map: &Sdl2KeyMap,
 ) {
     for event in event_pump.poll_iter() {
         match event {
@@ -118,6 +119,7 @@ fn process_key_event(
         }
     }
 }
+
 fn sdl2_draw(canvas: &mut Canvas<Window>, machine: &Machine<Sdl2Audio>) -> Result<()> {
     canvas.set_draw_color(sdl2::pixels::Color::RGBA(0, 0, 0, 255));
     canvas.clear();
@@ -134,56 +136,70 @@ fn sdl2_draw(canvas: &mut Canvas<Window>, machine: &Machine<Sdl2Audio>) -> Resul
     Ok(())
 }
 
-fn emulate(machine: &mut Machine<Sdl2Audio>) -> Result<()> {
-    let (timer_tx, timer_rx) = unbounded();
-    let (clock_tx, clock_rx) = unbounded();
-
-    // timer 60Hz ~= 16667 micros
-    let timer_dur = Duration::from_micros(1000000 / 60);
-    thread::spawn(move || loop {
-        thread::sleep(timer_dur);
-        timer_tx.send(chrono::Utc::now()).unwrap()
-    });
-    // clock 500Hz ~= 2000 micros
-    let clock_dur = Duration::from_micros(1000000 / 500);
-    thread::spawn(move || loop {
-        thread::sleep(clock_dur);
-        clock_tx.send(chrono::Utc::now()).unwrap();
-    });
-
-    let mut running = true;
-    let (width, height) = (machine.width(), machine.height());
-
+fn sdl2_init(width: u32, height: u32) -> Result<(Canvas<Window>, Sdl2Audio, EventPump)> {
     let sdl_context = sdl2::init()?;
+
     let video = sdl_context.video()?;
-    let audio = Sdl2Audio::new(sdl_context.audio()?)?;
     let window = video
         .window("yet-another-rchip8", 640, 320)
         .position_centered()
         .resizable()
         .build()?;
     let mut canvas = window.into_canvas().accelerated().build()?;
-    canvas.set_logical_size(width as u32, height as u32)?;
+    canvas.set_logical_size(width, height)?;
+
+    let audio = Sdl2Audio::new(sdl_context.audio()?)?;
+    Ok((canvas, audio, sdl_context.event_pump()?))
+}
+
+fn sdl2_emulate(machine: &mut Machine<Sdl2Audio>) -> Result<()> {
+    let (timer_tx, timer_rx) = unbounded();
+    let (clock_tx, clock_rx) = unbounded();
+
+    // timer 60Hz ~= 16667 micros
+    // clock 500Hz ~= 2000 micros
+    sender(timer_tx, clock_tx, 60, 500);
+
+    let (width, height) = (machine.width(), machine.height());
+    let (mut canvas, audio, mut event_pump) = sdl2_init(width as u32, height as u32)?;
     machine.init_sound(audio);
 
-    let mut event_pump = sdl_context.event_pump()?;
-    let key_map = KeyMap::default();
+    let key_map = Sdl2KeyMap::default();
+
+    let mut running = true;
     while running && !machine.is_halt() {
         select! {
             recv(timer_rx) -> msg => {
-                machine.decrement_delay_timer();
-                machine.decrement_sound_timer();
+                machine.update_timer();
                 sdl2_draw(&mut canvas, machine)?;
                 debug!("timer: {}", msg.unwrap());
             },
             recv(clock_rx) -> msg => {
-                process_key_event(machine, &mut running, &mut event_pump, &key_map);
+                sdl2_key_event(machine, &mut running, &mut event_pump, &key_map);
                 machine.run_cycle()?;
                 debug!("clock: {}", msg.unwrap());
             },
         };
     }
     Ok(())
+}
+
+fn sender(
+    timer_tx: Sender<DateTime<Utc>>,
+    clock_tx: Sender<DateTime<Utc>>,
+    timer_freq: u64,
+    clock_freq: u64,
+) {
+    let timer_dur = Duration::from_micros(1000000 / timer_freq);
+    thread::spawn(move || loop {
+        thread::sleep(timer_dur);
+        timer_tx.send(chrono::Utc::now()).unwrap();
+    });
+    let clock_dur = Duration::from_micros(1000000 / clock_freq);
+    thread::spawn(move || loop {
+        thread::sleep(clock_dur);
+        clock_tx.send(chrono::Utc::now()).unwrap();
+    });
 }
 
 fn main() -> Result<()> {
@@ -206,6 +222,6 @@ fn main() -> Result<()> {
     let mut machine = Machine::new()?;
     machine.load_font()?;
     machine.load_rom(&rom)?;
-    emulate(&mut machine)?;
+    sdl2_emulate(&mut machine)?;
     Ok(())
 }

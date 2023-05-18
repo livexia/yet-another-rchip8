@@ -89,7 +89,7 @@ impl<T: AudioPlay> Machine<T> {
         self.video.height()
     }
 
-    pub fn decrement_delay_timer(&mut self) {
+    fn decrement_delay_timer(&mut self) {
         if self.delay_timer > 0 {
             self.delay_timer -= 1;
         };
@@ -99,7 +99,7 @@ impl<T: AudioPlay> Machine<T> {
         self.audio = Some(auido_system);
     }
 
-    pub fn decrement_sound_timer(&mut self) {
+    fn decrement_sound_timer(&mut self) {
         if self.sound_timer > 0 {
             if let Some(audio) = &self.audio {
                 audio.resume();
@@ -108,6 +108,11 @@ impl<T: AudioPlay> Machine<T> {
         } else if let Some(audio) = &self.audio {
             audio.pause();
         };
+    }
+
+    pub fn update_timer(&mut self) {
+        self.decrement_delay_timer();
+        self.decrement_sound_timer();
     }
 
     fn fetch(&mut self) -> Result<Instruction> {
