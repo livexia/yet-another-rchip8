@@ -1,18 +1,11 @@
 use std::error::Error;
-use std::thread;
-use std::time::Duration;
 
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use sdl2::{EventPump, Sdl};
-
-use crossbeam_channel::{select, unbounded};
 use rand::Rng;
 
-use crate::audio::Audio;
+use crate::audio::AudioPlay;
 use crate::font::DEFAULTFONT;
 use crate::instruction::Instruction;
-use crate::keyboard::{KeyBoard, KeyMap};
+use crate::keyboard::KeyBoard;
 use crate::rom::ROM;
 use crate::video::Video;
 use crate::{err, Result};
@@ -22,27 +15,22 @@ const RESERVED_MEMORY_SIZE: usize = 512;
 const REGISTER_COUNT: usize = 16;
 const STACK_SIZE: usize = 16;
 
-pub struct Machine {
+pub struct Machine<T: AudioPlay> {
     memory: [u8; MEMORY_SIZE],
     registers: [u8; REGISTER_COUNT],
     pc: u16,
     // index register
     i: u16,
-    stack: Vec<u16>, // TODO: should be [u16; 16] and with a stack pointer
+    stack: Vec<u16>, // TODO: should be [u16; 16] with a stack pointer
     delay_timer: u8,
     sound_timer: u8,
     keyboard: KeyBoard,
-    sdl_context: Sdl,
     video: Video,
-    audio: Audio,
+    audio: Option<T>,
 }
 
-impl Machine {
+impl<T: AudioPlay> Machine<T> {
     pub fn new() -> Result<Self> {
-        let sdl_context = sdl2::init()?;
-        let video_subsystem = Video::new(sdl_context.video()?, 64, 32)?;
-        let audio_subsystem = Audio::new(sdl_context.audio()?)?;
-
         Ok(Machine {
             memory: [0; MEMORY_SIZE],
             registers: [0; REGISTER_COUNT],
@@ -51,11 +39,14 @@ impl Machine {
             stack: Vec::with_capacity(STACK_SIZE),
             delay_timer: 0,
             sound_timer: 0,
-            sdl_context,
             keyboard: KeyBoard::default(),
-            video: video_subsystem,
-            audio: audio_subsystem,
+            video: Video::new(64, 32),
+            audio: None,
         })
+    }
+
+    pub fn is_halt(&mut self) -> bool {
+        (self.pc as usize) >= MEMORY_SIZE
     }
 
     pub fn load_font(&mut self) -> Result<()> {
@@ -78,89 +69,45 @@ impl Machine {
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result<()> {
-        let (timer_tx, timer_rx) = unbounded();
-        let (clock_tx, clock_rx) = unbounded();
-
-        // timer 60Hz ~= 16667 micros
-        let timer_dur = Duration::from_micros(1000000 / 60);
-        thread::spawn(move || loop {
-            thread::sleep(timer_dur);
-            timer_tx.send(chrono::Utc::now()).unwrap();
-        });
-        // clock 500Hz ~= 2000 micros
-        let clock_dur = Duration::from_micros(1000000 / 500);
-        thread::spawn(move || loop {
-            thread::sleep(clock_dur);
-            clock_tx.send(chrono::Utc::now()).unwrap();
-        });
-
-        let mut running = true;
-        let mut event_pump = self.sdl_context.event_pump()?;
-        let key_map = KeyMap::default();
-        while running && (self.pc as usize) < MEMORY_SIZE - 1 {
-            select! {
-                recv(timer_rx) -> msg => {
-                    if self.delay_timer > 0 {
-                        self.delay_timer -= 1;
-                    };
-                    if self.sound_timer > 0 {
-                        self.audio.resume();
-                        self.sound_timer -= 1;
-                    } else {
-                        self.audio.pause();
-                    };
-                    // TODO: draw sdl2 canvas based of CHIP.video
-                    self.video.draw()?;
-                    debug!("timer: {}", msg.unwrap());
-                },
-                recv(clock_rx) -> msg => {
-                    self.process_key_event(&mut running, &mut event_pump, &key_map);
-                    self.run_cycle()?;
-                    debug!("clock: {}", msg.unwrap());
-                    debug!("registers: {:02?}", self.registers);
-                },
-            };
-        }
-        Ok(())
+    pub fn key_down(&mut self, key: u8) {
+        self.keyboard.key_down(key)
     }
 
-    fn process_key_event(
-        &mut self,
-        running: &mut bool,
-        event_pump: &mut EventPump,
-        key_map: &KeyMap,
-    ) {
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => {
-                    *running = false;
-                }
-                Event::KeyDown {
-                    scancode: Some(scancode),
-                    ..
-                } => {
-                    if let Some(key) = key_map.scancode_to_key(&scancode) {
-                        self.keyboard.key_down(key);
-                        debug!("KeyDown: {:?} -> {}", scancode, key);
-                    }
-                }
-                Event::KeyUp {
-                    scancode: Some(scancode),
-                    ..
-                } => {
-                    if let Some(key) = key_map.scancode_to_key(&scancode) {
-                        self.keyboard.key_up(key);
-                        debug!("KeyUp: {:?} -> {}", scancode, key);
-                    }
-                }
-                _ => {}
+    pub fn key_up(&mut self, key: u8) {
+        self.keyboard.key_up(key)
+    }
+
+    pub fn get_display(&self) -> &[Vec<u8>] {
+        self.video.get_grid()
+    }
+
+    pub fn width(&self) -> usize {
+        self.video.width()
+    }
+
+    pub fn height(&self) -> usize {
+        self.video.height()
+    }
+
+    pub fn decrement_delay_timer(&mut self) {
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
+        };
+    }
+
+    pub fn init_sound(&mut self, auido_system: T) {
+        self.audio = Some(auido_system);
+    }
+
+    pub fn decrement_sound_timer(&mut self) {
+        if self.sound_timer > 0 {
+            if let Some(audio) = &self.audio {
+                audio.resume();
             }
-        }
+            self.sound_timer -= 1;
+        } else if let Some(audio) = &self.audio {
+            audio.pause();
+        };
     }
 
     fn fetch(&mut self) -> Result<Instruction> {
@@ -172,7 +119,8 @@ impl Machine {
         Ok(instr)
     }
 
-    fn run_cycle(&mut self) -> Result<()> {
+    pub fn run_cycle(&mut self) -> Result<()> {
+        debug!("registers: {:02?}", self.registers);
         let instr = self.fetch()?;
         debug!("execute: {:04X}, pc: {:04X}", instr.opcode, self.pc - 2);
         let opcode = instr.opcode;
@@ -257,7 +205,7 @@ impl Machine {
                 let n = n as usize;
                 self.registers[0xf] =
                     self.video
-                        .flip(x, y, n, &self.memory[self.i as usize..self.i as usize + n])
+                        .draw(x, y, n, &self.memory[self.i as usize..self.i as usize + n])
             }
             0xE => {
                 let key = self.registers[x];
