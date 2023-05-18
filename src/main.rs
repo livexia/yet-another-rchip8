@@ -121,15 +121,15 @@ fn sdl2_key_event(
 }
 
 fn sdl2_draw(canvas: &mut Canvas<Window>, machine: &Machine<Sdl2Audio>) -> Result<()> {
-    canvas.set_draw_color(sdl2::pixels::Color::RGBA(0, 0, 0, 255));
-    canvas.clear();
-    canvas.set_draw_color(sdl2::pixels::Color::RGBA(255, 255, 255, 255));
     let grid = machine.get_display();
     for (x, row) in grid.iter().enumerate() {
         for (y, &item) in row.iter().enumerate() {
             if item != 0 {
-                canvas.draw_point((x as i32, y as i32))?;
+                canvas.set_draw_color(sdl2::pixels::Color::RGBA(255, 255, 255, 255));
+            } else {
+                canvas.set_draw_color(sdl2::pixels::Color::RGBA(0, 0, 0, 255));
             }
+            canvas.draw_point((x as i32, y as i32))?;
         }
     }
     canvas.present();
