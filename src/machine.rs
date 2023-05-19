@@ -366,4 +366,18 @@ mod machine_test {
         }
         machine.run_cycle().expect_err("Testing Stack overflow!");
     }
+
+    #[test]
+    fn test_stack_underflow() {
+        let mut machine: Machine<Sdl2Audio> = Machine::new().unwrap();
+        machine.registers[0] = 5;
+        machine.registers[1] = 10;
+
+        let mem = &mut machine.memory;
+        let start = RESERVED_MEMORY_SIZE;
+        mem[start] = 0x00;
+        mem[start + 1] = 0xEE;
+
+        machine.run_cycle().expect_err("Testing Stack underflow!");
+    }
 }
