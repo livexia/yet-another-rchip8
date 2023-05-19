@@ -21,7 +21,8 @@ pub struct Machine<T: AudioPlay> {
     pc: u16,
     // index register
     i: u16,
-    stack: Vec<u16>, // TODO: should be [u16; 16] with a stack pointer
+    stack: [u16; STACK_SIZE],
+    stack_pointer: usize,
     delay_timer: u8,
     sound_timer: u8,
     keyboard: KeyBoard,
@@ -36,7 +37,8 @@ impl<T: AudioPlay> Machine<T> {
             registers: [0; REGISTER_COUNT],
             pc: 0x200,
             i: 0x0,
-            stack: Vec::with_capacity(STACK_SIZE),
+            stack: [0; STACK_SIZE],
+            stack_pointer: 0,
             delay_timer: 0,
             sound_timer: 0,
             keyboard: KeyBoard::default(),
@@ -135,14 +137,11 @@ impl<T: AudioPlay> Machine<T> {
                 if opcode == 0x00e0 {
                     self.video.clear();
                 } else if opcode == 0x00ee {
-                    self.pc = self.stack.pop().unwrap(); // TODO: 需要后续编写错误处理
+                    self.ret()?;
                 }
             }
             0x1 => self.pc = nnn,
-            0x2 => {
-                self.stack.push(self.pc);
-                self.pc = nnn;
-            }
+            0x2 => self.call(nnn)?,
             0x3 => {
                 if self.registers[x] == nn {
                     self.pc += 2;
@@ -294,5 +293,77 @@ impl<T: AudioPlay> Machine<T> {
         let (val, flag) = self.registers[y].overflowing_sub(self.registers[x]);
         self.registers[0xf] = (!flag) as u8;
         self.registers[x] = val;
+    }
+
+    /// 00EE - ret
+    fn ret(&mut self) -> Result<()> {
+        if self.stack_pointer == 0 {
+            return err!("Stack underflow!");
+        }
+        self.pc = self.stack[self.stack_pointer];
+        self.stack_pointer -= 1;
+        Ok(())
+    }
+
+    /// 2nnn - call
+    fn call(&mut self, nnn: u16) -> Result<()> {
+        if self.stack_pointer + 1 >= STACK_SIZE {
+            return err!("Stack overflow! STACK_SIZE: {STACK_SIZE}");
+        }
+        self.stack_pointer += 1;
+        self.stack[self.stack_pointer] = self.pc;
+        self.pc = nnn;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod machine_test {
+    use super::*;
+    use crate::sdl2_audio::Sdl2Audio;
+
+    #[test]
+    fn test_call_and_ret() {
+        let mut machine: Machine<Sdl2Audio> = Machine::new().unwrap();
+        machine.registers[0] = 5;
+        machine.registers[1] = 10;
+
+        let mem = &mut machine.memory;
+        let start = RESERVED_MEMORY_SIZE;
+        mem[start] = 0x23;
+        mem[start + 1] = 0x00;
+        mem[start + 2] = 0x23;
+        mem[start + 3] = 0x00;
+
+        mem[0x300] = 0x80;
+        mem[0x301] = 0x14;
+        mem[0x302] = 0x80;
+        mem[0x303] = 0x14;
+        mem[0x304] = 0x00;
+        mem[0x305] = 0xEE;
+
+        while machine.pc as usize != start + 4 {
+            machine.run_cycle().unwrap();
+        }
+
+        assert_eq!(machine.registers[0], 45);
+        println!("5 + (10 * 2) + (10 * 2) = {}", machine.registers[0]);
+    }
+
+    #[test]
+    fn test_stack_overflow() {
+        let mut machine: Machine<Sdl2Audio> = Machine::new().unwrap();
+        machine.registers[0] = 5;
+        machine.registers[1] = 10;
+
+        let mem = &mut machine.memory;
+        let start = RESERVED_MEMORY_SIZE;
+        mem[start] = 0x22;
+        mem[start + 1] = 0x00;
+
+        for _ in 0..15 {
+            machine.run_cycle().expect("Stack should not overflow!")
+        }
+        machine.run_cycle().expect_err("Testing Stack overflow!");
     }
 }
