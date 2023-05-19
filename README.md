@@ -37,3 +37,5 @@ cargo run -- --rom .\test\TETRIS
 - [mattmikolay/chip-8](https://github.com/mattmikolay/chip-8)
 - [Octo](https://internet-janitor.itch.io/octo)
 - [David Winter's CHIP-8 emulation page](http://www.pong-story.com/chip8/)
+- [ColinEberhardt/wasm-rust-chip8](https://github.com/ColinEberhardt/wasm-rust-chip8)
+- [Cowgod's Chip-8 Technical Reference v1.0](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
